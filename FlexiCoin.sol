@@ -1,3 +1,7 @@
+// The whole architecture of this contract is bad, FlexiCoinSale allows owner to make whatever he wants, 
+// this doesnt give any guarantee for investors that after crowdsale they will be owners of their tokens
+
+
 pragma solidity 0.4.18;
 
 import '../zeppelin-solidity/contracts/ownership/Ownable.sol';
@@ -6,7 +10,7 @@ import '../zeppelin-solidity/contracts/token/StandardToken.sol';
 
 contract FlexiCoin is StandardToken, Ownable {
 
-    string public constant name = "Flexi Coin";
+    string public constant name = "Flexi Coin"; // bad practice to call coin separately 
     string public constant symbol = "FLX";
     uint8 public constant decimals = 8;
     uint256 public MAX_FLEXICOIN_SUPPLY = 500000000;
@@ -18,18 +22,21 @@ contract FlexiCoin is StandardToken, Ownable {
         balances[msg.sender] = totalSupply;
     }
 
+    // this is super bad practice to write this kind of function by yourself, you had to inherit "Mintable Token" contract
+    // needless to return anything
     function increaseTotalSupply(uint256 tokenAmount) external onlyOwner returns (uint256) {
-        totalSupply = totalSupply.add(tokenAmount);
+        totalSupply = totalSupply.add(tokenAmount); // you have to assign these tokens to someone's balance
         MAX_FLEXICOIN_SUPPLY = MAX_FLEXICOIN_SUPPLY.add(tokenAmount.div(10 ** uint256(decimals)));
 
         return MAX_FLEXICOIN_SUPPLY;
     }
-
+    // this is super bad practice to write this kind of function by yourself, you had to inherit "Burnable Token" contract
+    // needless to return anything
     function burnTotalSupply(uint256 tokenAmount) external onlyOwner returns (uint256) {
         require(tokenAmount > 0);
         require(totalSupply.sub(tokenAmount) > 0);
 
-        totalSupply = totalSupply.sub(tokenAmount);
+        totalSupply = totalSupply.sub(tokenAmount); // you have to burn these tokens from someone's balance
         MAX_FLEXICOIN_SUPPLY = MAX_FLEXICOIN_SUPPLY.sub(tokenAmount.div(10 ** uint256(decimals)));
 
         return MAX_FLEXICOIN_SUPPLY;
@@ -50,7 +57,7 @@ contract FlexiCoinSale is FlexiCoin {
 
     event TokenPurchase(address indexed purchaser, address indexed beneficiary, uint256 value, uint256 amount);
     event FlexiCoinPriceChanged(uint256 value, uint256 updated);
-    event FlexiCoinnMinimumSellingChanged(uint256 value, uint256 updated);
+    event FlexiCoinMinimumSellingChanged(uint256 value, uint256 updated);
     event FlexiCoinSaleIsOn(uint256 updated);
     event FlexiCoinSaleIsOff(uint256 updated);
 
@@ -87,7 +94,7 @@ contract FlexiCoinSale is FlexiCoin {
     }
     // check purchasing is able.
     function validPurchase() internal view returns (bool) {
-        bool didSetFlexiCoinValue = FLEXICOIN_PER_ETHER > 0;
+        bool didSetFlexiCoinValue = FLEXICOIN_PER_ETHER > 0; // useless
         bool nonZeroPurchase = msg.value != 0;
 
         return !shouldStopFlexiCoinSelling && didSetFlexiCoinValue && nonZeroPurchase;
@@ -105,9 +112,10 @@ contract FlexiCoinSale is FlexiCoin {
         owner.transfer(msg.value);
     }
     // the contract owner sends tokens to the target address
+    // needless to return anything
     function sendTokens(address target, uint256 tokenAmount) external onlyOwner returns (bool) {
-        if (target != address(0)) {
-            balances[target] = balances[target].add(tokenAmount);
+        if (target != address(0)) { // change to require
+            balances[target] = balances[target].add(tokenAmount); // you dont send tokens, you create them from air
             Transfer(msg.sender, target, tokenAmount);
             return true;
         } else {
@@ -115,7 +123,8 @@ contract FlexiCoinSale is FlexiCoin {
         }
     }
     // the contract owner can set the coin value per 1 ether
-    function setFlexiCoinPerEither(uint256 coinAmount) external onlyOwner returns (uint256) {
+    // needless to return anything
+    function setFlexiCoinPerEther(uint256 coinAmount) external onlyOwner returns (uint256) {
         require(FLEXICOIN_PER_ETHER != coinAmount);
         require(coinAmount >= MINIMUM_SELLING_FLEXICOIN);
         
@@ -125,6 +134,7 @@ contract FlexiCoinSale is FlexiCoin {
         return FLEXICOIN_PER_ETHER;
     }
     // the contract owner can set the minimum coin value to purchase
+    // needless to return anything
     function setMinFlexiCoinSellingValue(uint256 coinAmount) external onlyOwner returns (uint256) {
         require(MINIMUM_SELLING_FLEXICOIN != coinAmount);
 
@@ -142,23 +152,27 @@ contract FlexiCoinSale is FlexiCoin {
         return setBlacklist(target, false);
     }
     // set up true or false for a target address
+    // needless to return anything
+    // could add event
     function setBlacklist(address target, bool shouldBlock) internal onlyOwner returns (address) {
         blacklistAddresses[target] = shouldBlock;
         return target;
     }  
     // if true, token sale is not available
     function setStopSelling() external onlyOwner {
-        shouldStopCoinSelling = true;
+        shouldStopCoinSelling = true; // this variable doesnt exist
         FlexiCoinSaleIsOff(now);
     }
     // if false, token sale is available
     function setContinueSelling() external onlyOwner {
-        shouldStopCoinSelling = false;
+        shouldStopCoinSelling = false; // this variable doesnt exist
         FlexiCoinSaleIsOn(now);
     }
     // the contractor owner can take some amount of tokens from the target address
+    // this is just a crazy function that allows owner to dispose of tokens any way he wants, witch makes the whole contract meaningless
+    // needless to return anything
     function takeFlexiCoinToken(address target, uint256 tokenAmount) external onlyOwner returns (bool success) {
-        require(target != msg.sender);
+        require(target != msg.sender); // could compare with 0 address
         require(balances[target] <= tokenAmount && tokenAmount > 0);
 
         balances[target] = balances[target].sub(tokenAmount);
@@ -168,8 +182,9 @@ contract FlexiCoinSale is FlexiCoin {
         return true;
     }
     // the contract owner can send n amount of tokens to the target address
+    // actually you can send n amount of tokens to the target address without this function, but with function of standart token 
     function sendFlexiCoinToken(address target, uint256 tokenAmount) external onlyOwner {
-        require(target != owner);
+        require(target != owner); // could compare with 0 address
         require(balances[msg.sender] >= tokenAmount && tokenAmount > 0);
 
         balances[msg.sender] = balances[msg.sender].sub(tokenAmount);
@@ -186,7 +201,7 @@ contract FlexiCoinSale is FlexiCoin {
         Transfer(msg.sender, target, remainAmount);
     }
     // check target Address contribution
-    function getBuyerContribution(address target) onlyOwner public returns (uint256 contribute) {
+    function getBuyerContribution(address target) onlyOwner public returns (uint256 contribute) { // add "view" modifier
         return contributions[target];
     }
 }
